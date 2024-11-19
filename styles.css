@@ -1,0 +1,37 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+/* Custom Background */
+.stApp {
+    background: linear-gradient(315deg, #4f2991 3%, #7dc4ff 38%, #36cfcc 68%, #a92ed3 98%);
+    background-size: 400% 400%;
+    animation: gradient 15s ease infinite;
+    background-attachment: fixed;
+    font-family: 'Space Grotesk', sans-serif;
+}
+
+/* Remove default header and footer */
+header, footer {visibility: hidden;}
+
+/* Dashboard Title */
+.dashboard_title {
+    font-size: 40px;
+    color: #fcfcfc;
+    font-weight: 700;
+    text-align: center;
+    padding-bottom: 10px;
+}
+
+/* Dashboard Subtitle */
+.dashboard_subtitle {
+    font-size: 20px;
+    color: #48188C;
+    font-weight: 700;
+    text-align: center;
+    padding-bottom: 10px;
+}
+
+/* Navigation Menu Styles */
+.css-1wrcr25.e1farye10 {
+    background-color: transparent;
+}
