@@ -1,0 +1,9 @@
+streamlit
+pandas
+fredapi
+matplotlib
+seaborn
+statsmodels
+scikit-learn
+datetime
+streamlit-option-menu
