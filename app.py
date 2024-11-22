@@ -1,5 +1,3 @@
-# Streamlit app code
-%%writefile app.py
 import streamlit as st
 import pandas as pd
 from fredapi import Fred
