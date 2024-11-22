@@ -37,7 +37,7 @@ footer {visibility: hidden;}
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Set FRED API key
-fred = Fred(api_key='YOUR_FRED_API_KEY')  # Replace with your actual FRED API key
+fred = Fred(api_key='327e3e088495e2421efd4402e5a4c31a')  # Replace with your actual FRED API key
 
 # Define date range
 start_date = '1960-01-01'
