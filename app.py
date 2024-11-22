@@ -16,10 +16,13 @@ from sklearn.preprocessing import MinMaxScaler
 # Set up Streamlit layout - must be the first Streamlit command
 st.set_page_config(page_title="Economic Indicators Dashboard", layout="wide")
 
-# Function to inject CSS from a file
+# Function to inject CSS from a file (if you have custom styles)
 def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    try:
+        with open(file_name) as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    except FileNotFoundError:
+        pass  # If the styles.css file doesn't exist, skip loading styles
 
 # Load CSS styles
 local_css("styles.css")
@@ -34,7 +37,7 @@ footer {visibility: hidden;}
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Set FRED API key
-fred = Fred(api_key='327e3e088495e2421efd4402e5a4c31a')  # Replace with your actual FRED API key
+fred = Fred(api_key='YOUR_FRED_API_KEY')  # Replace with your actual FRED API key
 
 # Define date range
 start_date = '1960-01-01'
@@ -42,34 +45,33 @@ end_date = datetime.datetime.today().strftime('%Y-%m-%d')
 
 # Load data function
 def load_data():
-    # Core PCE Inflation Rate (monthly)
+    # Core PCE Inflation Rate (quarterly)
     core_pce = fred.get_series('PCEPILFE', start_date, end_date)
-    core_pce = core_pce.resample('M').last()
-    core_pce = core_pce.pct_change(12) * 100
+    core_pce = core_pce.resample('Q').last()
+    core_pce = core_pce.pct_change(4) * 100
     core_pce.name = 'Core PCE Inflation Rate'
 
-    # Real GDP and Potential GDP (quarterly, forward-filled to monthly)
+    # Real GDP and Potential GDP (quarterly)
     real_gdp = fred.get_series('GDPC1', start_date, end_date)
-    real_gdp = real_gdp.resample('M').ffill()
     potential_gdp = fred.get_series('GDPPOT', start_date, end_date)
-    potential_gdp = potential_gdp.resample('M').ffill()
     output_gap = ((real_gdp - potential_gdp) / potential_gdp) * 100
     output_gap.name = 'Output Gap'
 
-    # Unemployment Rate and NAIRU (monthly and quarterly)
+    # Unemployment Rate and NAIRU (quarterly)
     unemployment_rate = fred.get_series('UNRATE', start_date, end_date)
+    unemployment_rate = unemployment_rate.resample('Q').mean()
     nairu = fred.get_series('NROU', start_date, end_date)
-    nairu = nairu.resample('M').ffill()
     unemployment_gap = unemployment_rate - nairu
     unemployment_gap.name = 'Unemployment Gap'
 
-    # 10-Year Treasury Yield (daily, converted to monthly average)
+    # 10-Year Treasury Yield (quarterly)
     bond_yield_10yr = fred.get_series('DGS10', start_date, end_date)
-    bond_yield_10yr = bond_yield_10yr.resample('M').mean()
+    bond_yield_10yr = bond_yield_10yr.resample('Q').mean()
     bond_yield_10yr.name = '10-Year Treasury Yield'
 
-    # Federal Funds Rate (monthly)
+    # Federal Funds Rate (quarterly)
     federal_funds_rate = fred.get_series('FEDFUNDS', start_date, end_date)
+    federal_funds_rate = federal_funds_rate.resample('Q').mean()
     federal_funds_rate.name = 'Federal Funds Rate'
 
     # Combine data
@@ -151,13 +153,13 @@ elif menu_selected == "EDA":
     sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', vmin=-1, vmax=1, ax=ax)
     st.pyplot(fig)
 
-    # Seasonal decomposition
+    # Seasonal decomposition (quarterly data)
     st.subheader("Seasonal Decomposition of Core PCE Inflation Rate")
-    decompose_pce = seasonal_decompose(data['Core PCE Inflation Rate'].dropna(), model='additive', period=12)
+    decompose_pce = seasonal_decompose(data['Core PCE Inflation Rate'], model='additive', period=4)
     st.pyplot(decompose_pce.plot())
 
     st.subheader("Seasonal Decomposition of 10-Year Treasury Yield")
-    decompose_yield = seasonal_decompose(data['10-Year Treasury Yield'].dropna(), model='additive', period=12)
+    decompose_yield = seasonal_decompose(data['10-Year Treasury Yield'], model='additive', period=4)
     st.pyplot(decompose_yield.plot())
 
     # Histograms
@@ -176,29 +178,25 @@ elif menu_selected == "Insights":
     st.markdown("""
     **Key Observations:**
 
-    - **Core PCE Inflation Rate** has shown significant variability over time, with notable peaks during the 1970s and early 1980s. Recent increases may be associated with economic changes following global events.
+    - **Core PCE Inflation Rate** shows variability over time with significant peaks and troughs aligning with economic cycles.
 
-    - **Output Gap** reflects periods where actual GDP has fallen below or risen above potential GDP, aligning with economic recessions and expansions.
+    - **Output Gap** and **Unemployment Gap** reflect the health of the economy, showing expansions and contractions.
 
-    - **Unemployment Gap** shows spikes during economic downturns, indicating higher unemployment rates compared to the natural rate.
-
-    - **10-Year Treasury Yield** trends highlight the impact of monetary policies, particularly the high-interest rates in the 1980s aimed at controlling inflation.
+    - **10-Year Treasury Yield** trends provide insights into long-term interest rate expectations influenced by monetary policy.
 
     **Correlations:**
 
-    - A strong positive correlation between **Core PCE Inflation Rate** and **10-Year Treasury Yield** suggests that inflation expectations influence long-term interest rates.
+    - Positive correlation between **Core PCE Inflation Rate** and **10-Year Treasury Yield**.
 
-    - The negative correlation between **Output Gap** and **Unemployment Gap** aligns with economic theory, as higher unemployment often coincides with lower output.
+    - Negative correlation between **Output Gap** and **Unemployment Gap**.
 
     **Seasonal Patterns:**
 
-    - Seasonal decomposition reveals cyclical trends in both inflation rates and treasury yields, which can be important for timing economic policies and investment decisions.
+    - Seasonal decomposition indicates quarterly patterns in the data.
 
     **Distributions:**
 
-    - The distribution of the **Core PCE Inflation Rate** is skewed towards lower values, indicating periods of relatively low inflation are more common.
-
-    - The **Output Gap** and **Unemployment Gap** distributions provide insights into the typical economic conditions over the observed period.
+    - Most indicators are normally distributed with some skewness, which is typical in economic data.
     """)
 
 # Prediction Section
@@ -223,7 +221,7 @@ elif menu_selected == "Prediction":
             y.append(data[i, -1])  # Target variable (Federal Funds Rate)
         return np.array(X), np.array(y)
 
-    seq_length = 12  # Use past 12 months to predict the next month
+    seq_length = 8  # Use past 8 quarters (2 years) to predict the next quarter
     X, y = create_sequences(scaled_data, seq_length)
 
     # Split the data
@@ -239,7 +237,7 @@ elif menu_selected == "Prediction":
     model.compile(optimizer='adam', loss='mean_squared_error')
 
     # Train the model
-    history = model.fit(X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y_test), verbose=0)
+    history = model.fit(X_train, y_train, epochs=100, batch_size=16, validation_data=(X_test, y_test), verbose=0)
 
     # Evaluate the model
     train_loss = model.evaluate(X_train, y_train, verbose=0)
@@ -247,6 +245,16 @@ elif menu_selected == "Prediction":
     st.subheader("Model Performance")
     st.write(f"Train Loss (MSE): {train_loss:.6f}")
     st.write(f"Test Loss (MSE): {test_loss:.6f}")
+
+    # Plot training loss
+    st.subheader("Training and Validation Loss")
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(history.history['loss'], label='Training Loss')
+    ax.plot(history.history['val_loss'], label='Validation Loss')
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.legend()
+    st.pyplot(fig)
 
     # Make predictions
     y_pred = model.predict(X_test)
@@ -302,5 +310,5 @@ elif menu_selected == "Prediction":
     st.write(f"**Predicted Federal Funds Rate:** {predicted_funds_rate:.2f}%")
 
     st.markdown("""
-    **Note:** This prediction is based on the GRU model trained on historical data. Actual Federal Funds Rate decisions are influenced by a wide range of economic factors and policy considerations.
+    **Note:** This prediction is based on the GRU model trained on historical quarterly data. Actual Federal Funds Rate decisions are influenced by a wide range of economic factors and policy considerations.
     """)
