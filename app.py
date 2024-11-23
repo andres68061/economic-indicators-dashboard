@@ -145,6 +145,43 @@ if 'scaled_data' in locals():
     train_loss = model.evaluate(X_train, y_train, verbose=0)
     test_loss = model.evaluate(X_test, y_test, verbose=0)
 
+    # Fetch the latest values from FRED
+    def get_latest_values():
+        # Core PCE Inflation Rate (annual percent change over 4 quarters)
+        core_pce = fred.get_series('PCEPILFE')
+        core_pce = core_pce.resample('Q').last()
+        core_pce = core_pce.pct_change(4) * 100
+        core_pce.name = 'Core PCE Inflation Rate'
+        latest_core_pce = core_pce.iloc[-1]
+
+        # Real GDP and Potential GDP (to compute Output Gap)
+        real_gdp = fred.get_series('GDPC1').resample('Q').last()
+        potential_gdp = fred.get_series('GDPPOT').resample('Q').last()
+        output_gap = ((real_gdp - potential_gdp) / potential_gdp) * 100
+        output_gap.name = 'Output Gap'
+        latest_output_gap = output_gap.iloc[-1]
+
+        # Unemployment Rate and NAIRU (to compute Unemployment Gap)
+        unemployment_rate = fred.get_series('UNRATE').resample('Q').mean()
+        nairu = fred.get_series('NROU').resample('Q').mean()
+        unemployment_gap = unemployment_rate - nairu
+        unemployment_gap.name = 'Unemployment Gap'
+        latest_unemployment_gap = unemployment_gap.iloc[-1]
+
+        # 10-Year Treasury Yield (latest value)
+        bond_yield_10yr = fred.get_series('DGS10')
+        latest_bond_yield = bond_yield_10yr.iloc[-1]
+
+        return {
+            "Core PCE Inflation Rate": latest_core_pce,
+            "Output Gap": latest_output_gap,
+            "Unemployment Gap": latest_unemployment_gap,
+            "10-Year Treasury Yield": latest_bond_yield
+        }
+
+    # Get the latest values and display them
+    latest_values = get_latest_values()
+
     # Create a horizontal menu
     menu_selected = option_menu(
         menu_title=None,  # No need for a menu title
@@ -319,10 +356,30 @@ if 'scaled_data' in locals():
             st.subheader("Make a Prediction")
             st.write("Enter values for the following indicators to predict the Federal Funds Rate:")
 
-            input_inflation = st.number_input("Core PCE Inflation Rate (%)", min_value=-5.0, max_value=15.0, value=2.0)
-            input_output_gap = st.number_input("Output Gap (%)", min_value=-10.0, max_value=10.0, value=0.0)
-            input_unemployment_gap = st.number_input("Unemployment Gap (%)", min_value=-5.0, max_value=5.0, value=0.0)
-            input_bond_yield = st.number_input("10-Year Treasury Yield (%)", min_value=0.0, max_value=15.0, value=2.0)
+            input_inflation = st.number_input(
+                "Core PCE Inflation Rate (%)",
+                min_value=-5.0,
+                max_value=15.0,
+                value=float(latest_values["Core PCE Inflation Rate"])
+            )
+            input_output_gap = st.number_input(
+                "Output Gap (%)",
+                min_value=-10.0,
+                max_value=10.0,
+                value=float(latest_values["Output Gap"])
+            )
+            input_unemployment_gap = st.number_input(
+                "Unemployment Gap (%)",
+                min_value=-5.0,
+                max_value=5.0,
+                value=float(latest_values["Unemployment Gap"])
+            )
+            input_bond_yield = st.number_input(
+                "10-Year Treasury Yield (%)",
+                min_value=0.0,
+                max_value=15.0,
+                value=float(latest_values["10-Year Treasury Yield"])
+            )
 
             # Prepare the input data
             input_data = np.array([[input_inflation, input_output_gap, input_unemployment_gap, input_bond_yield]])
@@ -347,3 +404,5 @@ if 'scaled_data' in locals():
             """)
         else:
             st.error("Data processing failed. Please check the data loading and preprocessing steps.")
+else:
+    st.error("Data processing failed. Please check the data loading and preprocessing steps.")
